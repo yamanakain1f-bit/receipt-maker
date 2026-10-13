@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>領収書</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif; color:var(--ink); background:var(--bg); }
+  .app { display:grid; grid-template-columns:340px 1fr; min-height:100vh; }
+  body.viewer .app { display:block; }
+  body.viewer form, body.viewer #qrPanel { display:none !important; }
+  body:not(.viewer) #viewerBar { display:none; }
+  form { background:#fff; border-right:1px solid var(--line); padding:20px; overflow:auto; }
+  form h1 { font-size:18px; margin:0 0 4px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:12px 0 4px; }
+  input, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:14px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  button { margin-top:16px; width:100%; padding:12px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button.sub { background:#e8eaef; color:var(--ink); }
+  .hint { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5; }
+  .stage { padding:24px; overflow:auto; }
+  #qrPanel { max-width:210mm; margin:0 auto 18px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; display:none; align-items:center; gap:20px; }
+  #qrPanel b { font-size:15px; }
+  #qrCanvas img, #qrCanvas canvas { display:block; }
+  #viewerBar { max-width:210mm; margin:0 auto 12px; display:flex; gap:8px; align-items:center; padding:12px 12px 0; }
+  #viewerBar button { margin:0; width:auto; padding:10px 16px; }
+  #viewerBar span { font-size:12px; color:var(--muted); }
+  .paper { width:210mm; min-height:148mm; margin:0 auto; background:#fff; padding:16mm 16mm 12mm; box-shadow:0 2px 12px rgba(0,0,0,.12); }
+  .top { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+  .title { text-align:center; font-size:30px; letter-spacing:.6em; margin:10px 0 18px; font-weight:600; }
+  .to { display:flex; align-items:baseline; border-bottom:1.5px solid var(--ink); padding-bottom:4px; font-size:20px; }
+  .to span.sama { margin-left:auto; font-size:16px; }
+  .amount { margin:18px 0 6px; display:flex; align-items:center; justify-content:center; gap:14px; background:#f6f7f9; border:1px solid var(--ink); padding:12px; }
+  .amount b { font-size:32px; letter-spacing:.04em; }
+  .amount small { font-size:12px; color:var(--muted); }
+  .tadashi { margin:14px 0; font-size:14px; }
+  .tadashi u { text-underline-offset:4px; }
+  .tax { width:60%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  .tax td { border:1px solid var(--line); padding:4px 8px; }
+  .tax td:last-child { text-align:right; }
+  .issuer { margin-top:22px; font-size:13px; line-height:1.7; }
+  .issuer .name { font-size:16px; font-weight:600; }
+  @media print {
+    @page { size:A4; margin:0; }
+    body { background:#fff; }
+    .app { display:block; }
+    form, #qrPanel, #viewerBar { display:none !important; }
+    .stage { padding:0; }
+    .paper { box-shadow:none; margin:0; zoom:1 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <form id="f">
+    <h1>領収書メーカー</h1>
+    <div class="hint">入力 → 「QRを発行」→ お客様に読み取ってもらう</div>
+    <label>宛名(空欄なら「上様」)</label><input name="to" value="">
+    <div class="row">
+      <div><label>金額(円)</label><input name="amount" type="number" inputmode="numeric" value=""></div>
+      <div><label>金額の種類</label><select name="incl"><option value="1">税込</option><option value="0">税抜</option></select></div>
+    </div>
+    <label>消費税率</label>
+    <select name="rate"><option value="10">10%</option><option value="8">8%(軽減)</option><option value="0">非課税・不課税</option></select>
+    <label>但し書き</label><input name="memo" value="商品代として">
+    <div class="row">
+      <div><label>発行日</label><input name="date" type="date"></div>
+      <div><label>領収書番号</label><input name="no" value=""></div>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 4px">
+    <div class="hint">↓ 発行者情報は一度入れるとこの端末に記憶されます</div>
+    <label>発行者名</label><input name="issuer" value="株式会社dots">
+    <label>住所</label><input name="addr" value="">
+    <div class="row">
+      <div><label>電話</label><input name="tel" value=""></div>
+      <div><label>登録番号(T+13桁)</label><input name="reg" placeholder="T1234567890123"></div>
+    </div>
+    <label>公開URL(このファイルを置いたURL)</label>
+    <input name="base" placeholder="https://〇〇.netlify.app/">
+    <div class="hint">ネット上に置いたこのファイルのURL。置いたページから開いた場合は自動で入ります。</div>
+    <button type="button" id="btnQr">QRを発行</button>
+    <button type="button" class="sub" id="btnNext">次の領収書へ(番号+1・金額クリア)</button>
+  </form>
+
+  <div class="stage">
+    <div id="viewerBar">
+      <button type="button" onclick="window.print()">PDFで保存</button>
+      <span>画面のスクリーンショットでも保存できます</span>
+    </div>
+    <div id="qrPanel">
+      <div id="qrCanvas"></div>
+      <div>
+        <b>お客様にこのQRを読み取ってもらってください</b>
+        <div class="hint" id="qrNote"></div>
+      </div>
+    </div>
+    <div class="paper" id="paper">
+      <div class="top"><span id="vNo"></span><span id="vDate"></span></div>
+      <div class="title">領収書</div>
+      <div class="to"><span id="vTo"></span><span class="sama">様</span></div>
+      <div class="amount"><b id="vAmount"></b><small id="vIncl"></small></div>
+      <div class="tadashi">但し <u id="vMemo"></u> として、上記正に領収いたしました。</div>
+      <table class="tax">
+        <tr><td id="vRateLabel"></td><td id="vBase"></td></tr>
+        <tr><td>消費税額</td><td id="vTax"></td></tr>
+      </table>
+      <div class="issuer">
+        <div class="name" id="vIssuer"></div>
+        <div id="vAddr"></div>
+        <div id="vTel"></div>
+        <div id="vReg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const f = document.getElementById('f');
+const $ = id => document.getElementById(id);
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg'];
+const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl'];
+const ls = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+
+// --- 圧縮せずJSON→base64url(日本語対応) ---
+const enc = o => { const b = new TextEncoder().encode(JSON.stringify(o)); let s=''; b.forEach(x=>s+=String.fromCharCode(x)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const dec = s => { s=s.replace(/-/g,'+').replace(/_/g,'/'); const bin=atob(s); const b=Uint8Array.from(bin,c=>c.charCodeAt(0)); return JSON.parse(new TextDecoder().decode(b)); };
+
+function show(v) {
+  const amt = Number(v.amount) || 0, rate = Number(v.rate), incl = String(v.incl) === '1';
+  let total, base, tax;
+  if (incl) { total = amt; base = Math.round(amt / (1 + rate/100)); tax = total - base; }
+  else      { base = amt;  tax = Math.floor(amt * rate/100); total = base + tax; }
+  $('vNo').textContent = v.no ? 'No. ' + v.no : '';
+  const d = v.date ? new Date(v.date + 'T00:00:00') : null;
+  $('vDate').textContent = d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日` : '';
+  $('vTo').textContent = v.to || '上';
+  document.querySelector('.sama').textContent = v.to ? '様' : '';
+  $('vAmount').textContent = yen(total) + ' -';
+  $('vIncl').textContent = rate ? '(税込)' : '';
+  $('vMemo').textContent = '　' + (v.memo||'') + '　';
+  $('vRateLabel').textContent = rate ? `${rate}%対象(税抜)` : '非課税・不課税';
+  $('vBase').textContent = yen(base);
+  $('vTax').textContent = yen(tax);
+  $('vIssuer').textContent = v.issuer || '';
+  $('vAddr').textContent = v.addr || '';
+  $('vTel').textContent = v.tel ? 'TEL ' + v.tel : '';
+  $('vReg').textContent = v.reg ? '登録番号 ' + v.reg : '';
+}
+const formVals = () => Object.fromEntries(new FormData(f));
+
+// --- スマホ表示: 用紙を画面幅に合わせて縮小 ---
+function fit() {
+  const p = $('paper');
+  if (!document.body.classList.contains('viewer')) { p.style.zoom = ''; return; }
+  const w = p.offsetWidth / (parseFloat(getComputedStyle(p).zoom) || 1);
+  p.style.zoom = Math.min(1, (window.innerWidth - 16) / w);
+}
+
+// --- お客様側(QR読み取り後) ---
+if (location.hash.startsWith('#r=')) {
+  try {
+    document.body.classList.add('viewer');
+    document.title = '領収書';
+    show(dec(location.hash.slice(3)));
+    document.querySelector('.stage').style.padding = '8px 0 24px';
+    fit(); window.addEventListener('resize', fit);
+  } catch (e) {
+    document.body.classList.remove('viewer');
+    alert('領収書データを読み取れませんでした');
+  }
+}
+
+// --- こちら側(入力) ---
+if (!document.body.classList.contains('viewer')) {
+  f.date.value = new Date().toISOString().slice(0,10);
+  SAVED.forEach(k => { const x = ls.get('rc_'+k); if (x !== null) f[k].value = x; });
+  f.no.value = ls.get('rc_nextno') || '1';
+  if (/^https?:/.test(location.protocol) && !f.base.value) f.base.value = location.origin + location.pathname;
+  f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
+  show(formVals());
+
+  $('btnQr').onclick = () => {
+    const v = formVals();
+    if (!(Number(v.amount) > 0)) return alert('金額を入れてください');
+    if (!v.base) return alert('「公開URL」を入れてください(ネット上に置いたこのファイルのURL)');
+    const data = {}; KEYS.forEach(k => data[k] = v[k]);
+    const url = v.base.split('#')[0] + '#r=' + enc(data);
+    const box = $('qrCanvas'); box.innerHTML = '';
+    new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
+    $('qrNote').textContent = '読み取ると領収書が表示されます(No.' + v.no + ')。';
+    $('qrPanel').style.display = 'flex';
+    ls.set('rc_nextno', String((parseInt(v.no,10)||0) + 1));
+    $('qrPanel').scrollIntoView({behavior:'smooth'});
+  };
+  $('btnNext').onclick = () => {
+    f.amount.value = ''; f.to.value = '';
+    f.no.value = ls.get('rc_nextno') || String((parseInt(f.no.value,10)||0)+1);
+    $('qrPanel').style.display = 'none';
+    show(formVals());
+  };
+}
+</script>
+</body>
+</html>
