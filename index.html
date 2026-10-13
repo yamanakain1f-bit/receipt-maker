@@ -43,6 +43,14 @@
   .tax td:last-child { text-align:right; }
   .issuer { margin-top:22px; font-size:13px; line-height:1.7; }
   .issuer .name { font-size:16px; font-weight:600; }
+  @media (max-width:800px) {
+    .app { display:block; }
+    form { border-right:0; border-bottom:1px solid var(--line); }
+    input, select { font-size:16px; }
+    .stage { padding:12px 8px; }
+    #qrPanel { flex-wrap:wrap; justify-content:center; text-align:center; }
+    #qrCanvas { margin:0 auto; }
+  }
   @media print {
     @page { size:A4; margin:0; }
     body { background:#fff; }
@@ -154,11 +162,13 @@ const formVals = () => Object.fromEntries(new FormData(f));
 
 // --- スマホ表示: 用紙を画面幅に合わせて縮小 ---
 function fit() {
-  const p = $('paper');
-  if (!document.body.classList.contains('viewer')) { p.style.zoom = ''; return; }
-  const w = p.offsetWidth / (parseFloat(getComputedStyle(p).zoom) || 1);
-  p.style.zoom = Math.min(1, (window.innerWidth - 16) / w);
+  const p = $('paper'), st = document.querySelector('.stage');
+  p.style.zoom = 1;
+  const w = p.offsetWidth;
+  const avail = st.clientWidth - (document.body.classList.contains('viewer') ? 16 : 16);
+  p.style.zoom = Math.min(1, avail / w);
 }
+window.addEventListener('resize', fit);
 
 // --- お客様側(QR読み取り後) ---
 if (location.hash.startsWith('#r=')) {
@@ -167,7 +177,7 @@ if (location.hash.startsWith('#r=')) {
     document.title = '領収書';
     show(dec(location.hash.slice(3)));
     document.querySelector('.stage').style.padding = '8px 0 24px';
-    fit(); window.addEventListener('resize', fit);
+    fit();
   } catch (e) {
     document.body.classList.remove('viewer');
     alert('領収書データを読み取れませんでした');
@@ -181,7 +191,7 @@ if (!document.body.classList.contains('viewer')) {
   f.no.value = ls.get('rc_nextno') || '1';
   if (/^https?:/.test(location.protocol) && !f.base.value) f.base.value = location.origin + location.pathname;
   f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
-  show(formVals());
+  show(formVals()); fit();
 
   $('btnQr').onclick = () => {
     const v = formVals();
