@@ -109,6 +109,11 @@
       <div><label>電話</label><input name="tel" value="072-981-9177"></div>
       <div><label>登録番号(T+13桁)</label><input name="reg" value="T8120001207830" placeholder="T1234567890123"></div>
     </div>
+    <label>担当者名(任意・記録に残ります)</label><input name="staff" value="">
+    <label>スプレッドシート連携URL(任意)</label>
+    <input name="gas" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="hint" id="syncState">未設定の場合は、この端末の履歴にだけ残ります。</div>
+    <button type="button" class="sub" id="btnSync" hidden>未送信を今すぐ送る</button>
     <label>公開URL(このファイルを置いたURL)</label>
     <input name="base" placeholder="https://〇〇.netlify.app/">
     <div class="hint">ネット上に置いたこのファイルのURL。置いたページから開いた場合は自動で入ります。</div>
@@ -121,6 +126,7 @@
       <button type="button" class="sub" id="btnCsv">CSVで保存</button>
       <button type="button" class="sub" id="btnClear">履歴を消す</button>
     </div>
+    <button type="button" class="sub" id="btnAll">履歴をスプレッドシートに全件送る</button>
     <div class="hint">履歴はこの端末のブラウザにだけ残ります。端末を変えると別の履歴になります。</div>
   </form>
 
@@ -161,7 +167,7 @@ const f = document.getElementById('f');
 const $ = id => document.getElementById(id);
 const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
 const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg'];
-const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl'];
+const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl','staff','gas'];
 const mem = {};  // 保存が使えない環境(シークレットモード等)では、ページを開いている間だけ記憶
 const ls = {
   get:k=>{ try { const x = localStorage.getItem(k); return x !== null ? x : (k in mem ? mem[k] : null); } catch(e) { return k in mem ? mem[k] : null; } },
@@ -241,6 +247,47 @@ if (!document.body.classList.contains('viewer')) {
     $('qrPanel').scrollIntoView({behavior:'smooth'});
   };
 
+  // スプレッドシート送信: 未送信をキューに溜め、送れたものから消す(電波が弱くても失われない)
+  const loadQ = () => { try { return JSON.parse(ls.get('rc_queue') || '[]'); } catch (e) { return []; } };
+  const saveQ = q => ls.set('rc_queue', JSON.stringify(q));
+  const deviceId = (() => { let d = ls.get('rc_dev'); if (!d) { d = Math.random().toString(36).slice(2, 6); ls.set('rc_dev', d); } return d; })();
+  const payloadOf = (data, at) => {
+    const c = calc(data), d = new Date(at), z = n => String(n).padStart(2, '0');
+    return { id: `${data.date}-${data.no}-${deviceId}`,
+      at: `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`,
+      no: data.no, date: data.date, to: data.to, memo: String(data.memo||'').replace(/として$/,''),
+      total: c.total, base: c.base, tax: c.tax, rate: c.rate,
+      staff: f.staff.value, issuer: data.issuer };
+  };
+  const setSync = (msg, bad) => { $('syncState').textContent = msg; $('syncState').style.color = bad ? '#c0392b' : ''; };
+  const refreshSync = () => {
+    const n = loadQ().length;
+    $('btnSync').hidden = !(n && f.gas.value);
+    if (!f.gas.value) setSync('未設定の場合は、この端末の履歴にだけ残ります。');
+    else if (n) setSync(`未送信が${n}件あります。電波のあるところで送ってください。`, true);
+    else setSync('スプレッドシートに記録します(送信済み)。');
+  };
+  let flushing = false;
+  async function flush() {
+    const url = f.gas.value.trim();
+    if (!url || flushing) return refreshSync();
+    flushing = true; setSync('スプレッドシートに送信中…');
+    try {
+      let q = loadQ();
+      while (q.length) {
+        const res = await fetch(url, { method:'POST', body: JSON.stringify(q[0]) }); // text/plainで送る(事前確認なし)
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || 'error');
+        q = loadQ().filter(x => x.id !== q[0].id); saveQ(q);
+      }
+    } catch (e) { /* 圏外・URL違いなどは未送信のまま残す */ }
+    flushing = false; refreshSync();
+  }
+  const enqueue = p => { saveQ(loadQ().filter(x => x.id !== p.id).concat(p)); flush(); };
+  $('btnSync').onclick = flush;
+  f.gas.addEventListener('change', () => { refreshSync(); flush(); });
+  window.addEventListener('online', flush);
+
   // 発行履歴(この端末のみ)
   const loadHist = () => { try { return JSON.parse(ls.get('rc_hist') || '[]'); } catch (e) { return []; } };
   const saveHist = h => ls.set('rc_hist', JSON.stringify(h));
@@ -269,7 +316,9 @@ if (!document.body.classList.contains('viewer')) {
     ls.set('rc_nextno', String((parseInt(v.no,10)||0) + 1));
     // 同じ番号は上書き(再発行しても重複しない)
     const h = loadHist().filter(e => e.data.no !== data.no || e.data.date !== data.date);
-    h.push({ at: Date.now(), data }); saveHist(h); renderHist();
+    const at = Date.now();
+    h.push({ at, data }); saveHist(h); renderHist();
+    if (f.gas.value) enqueue(payloadOf(data, at));
   };
 
   $('btnCsv').onclick = () => {
@@ -282,11 +331,17 @@ if (!document.body.classList.contains('viewer')) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = '領収書履歴_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
   };
+  $('btnAll').onclick = () => {
+    if (!f.gas.value) return alert('先に「スプレッドシート連携URL」を入れてください');
+    const h = loadHist(); if (!h.length) return alert('履歴がありません');
+    h.forEach(e => saveQ(loadQ().filter(x => x.id !== payloadOf(e.data, e.at).id).concat(payloadOf(e.data, e.at))));
+    flush();
+  };
   $('btnClear').onclick = () => {
     if (!loadHist().length) return;
     if (confirm('発行履歴を全部消します。CSVで保存済みですか?')) { saveHist([]); renderHist(); }
   };
-  renderHist();
+  renderHist(); refreshSync(); flush();
 
   $('btnNext').onclick = () => {
     f.amount.value = ''; f.to.value = '';
