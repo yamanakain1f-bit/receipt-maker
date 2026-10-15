@@ -109,7 +109,6 @@
       <div><label>電話</label><input name="tel" value="072-981-9177"></div>
       <div><label>登録番号(T+13桁)</label><input name="reg" value="T8120001207830" placeholder="T1234567890123"></div>
     </div>
-    <label>担当者名(任意・記録に残ります)</label><input name="staff" value="">
     <label>スプレッドシート連携URL(任意)</label>
     <input name="gas" placeholder="https://script.google.com/macros/s/.../exec">
     <div class="hint" id="syncState">未設定の場合は、この端末の履歴にだけ残ります。</div>
@@ -167,7 +166,7 @@ const f = document.getElementById('f');
 const $ = id => document.getElementById(id);
 const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
 const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg'];
-const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl','staff','gas'];
+const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl','gas'];
 const mem = {};  // 保存が使えない環境(シークレットモード等)では、ページを開いている間だけ記憶
 const ls = {
   get:k=>{ try { const x = localStorage.getItem(k); return x !== null ? x : (k in mem ? mem[k] : null); } catch(e) { return k in mem ? mem[k] : null; } },
@@ -257,7 +256,7 @@ if (!document.body.classList.contains('viewer')) {
       at: `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`,
       no: data.no, date: data.date, to: data.to, memo: String(data.memo||'').replace(/として$/,''),
       total: c.total, base: c.base, tax: c.tax, rate: c.rate,
-      staff: f.staff.value, issuer: data.issuer };
+      issuer: data.issuer };
   };
   const setSync = (msg, bad) => { $('syncState').textContent = msg; $('syncState').style.color = bad ? '#c0392b' : ''; };
   const refreshSync = () => {
