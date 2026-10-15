@@ -51,6 +51,19 @@
     #qrPanel { flex-wrap:wrap; justify-content:center; text-align:center; }
     #qrCanvas { margin:0 auto; }
   }
+  @media (max-width:800px) {
+    body.viewer .paper { width:auto; min-height:0; margin:0 10px; padding:26px 20px 28px; zoom:1 !important; }
+    body.viewer .title { font-size:24px; letter-spacing:.45em; margin:8px 0 18px; }
+    body.viewer .to { font-size:18px; }
+    body.viewer .amount { padding:14px 8px; gap:8px; flex-wrap:wrap; }
+    body.viewer .amount b { font-size:28px; }
+    body.viewer .tadashi { font-size:15px; line-height:1.8; }
+    body.viewer .tax { width:100%; font-size:13px; }
+    body.viewer .issuer { font-size:14px; }
+    body.viewer #viewerBar { padding:12px 10px 0; }
+    body.viewer #viewerBar button { padding:9px 14px; font-size:14px; white-space:nowrap; }
+    body.viewer #viewerBar span { font-size:11px; }
+  }
   @media print {
     @page { size:A4; margin:0; }
     body { background:#fff; }
@@ -73,7 +86,7 @@
     </div>
     <label>消費税率</label>
     <select name="rate"><option value="10">10%</option><option value="8">8%(軽減)</option><option value="0">非課税・不課税</option></select>
-    <label>但し書き</label><input name="memo" value="商品代として">
+    <label>但し書き</label><input name="memo" value="商品代">
     <div class="row">
       <div><label>発行日</label><input name="date" type="date"></div>
       <div><label>領収書番号</label><input name="no" value=""></div>
@@ -146,7 +159,7 @@ function show(v) {
   const d = v.date ? new Date(v.date + 'T00:00:00') : null;
   $('vDate').textContent = d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日` : '';
   $('vTo').textContent = v.to || '上';
-  document.querySelector('.sama').textContent = v.to ? '様' : '';
+  document.querySelector('.sama').textContent = '様';
   $('vAmount').textContent = yen(total) + ' -';
   $('vIncl').textContent = rate ? '(税込)' : '';
   $('vMemo').textContent = '　' + (v.memo||'') + '　';
