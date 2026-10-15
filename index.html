@@ -158,8 +158,8 @@ function show(v) {
   $('vNo').textContent = v.no ? 'No. ' + v.no : '';
   const d = v.date ? new Date(v.date + 'T00:00:00') : null;
   $('vDate').textContent = d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日` : '';
-  $('vTo').textContent = v.to || '上';
-  document.querySelector('.sama').textContent = '様';
+  $('vTo').textContent = v.to || '上様';
+  document.querySelector('.sama').textContent = v.to ? '様' : '';
   $('vAmount').textContent = yen(total) + ' -';
   $('vIncl').textContent = rate ? '(税込)' : '';
   $('vMemo').textContent = '　' + (v.memo||'').replace(/として$/,'') + '　';
