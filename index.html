@@ -8,6 +8,7 @@
 <style>
   :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
   * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   body { margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif; color:var(--ink); background:var(--bg); }
   .app { display:grid; grid-template-columns:340px 1fr; min-height:100vh; }
   body.viewer .app { display:block; }
@@ -63,13 +64,14 @@
   }
   @media (max-width:800px) {
     body.viewer .paper { width:auto; min-height:0; margin:0 10px; padding:26px 20px 28px; zoom:1 !important; }
-    body.viewer .title { font-size:24px; letter-spacing:.45em; margin:8px 0 18px; }
-    body.viewer .to { font-size:18px; }
+    body.viewer .title { font-size:20px; letter-spacing:.45em; margin:6px 0 14px; }
+    body.viewer .to { font-size:16px; }
     body.viewer .amount { padding:14px 8px; gap:8px; flex-wrap:wrap; }
-    body.viewer .amount b { font-size:28px; }
-    body.viewer .tadashi { font-size:15px; line-height:1.8; }
-    body.viewer .tax { width:100%; font-size:13px; }
-    body.viewer .issuer { font-size:14px; }
+    body.viewer .amount b { font-size:24px; }
+    body.viewer .tadashi { font-size:13px; line-height:1.8; }
+    body.viewer .tax { width:100%; font-size:12px; }
+    body.viewer .issuer { font-size:12px; }
+    body.viewer .issuer .name { font-size:14px; }
     body.viewer #viewerBar { padding:12px 10px 0; }
     body.viewer #viewerBar button { padding:9px 14px; font-size:14px; white-space:nowrap; }
     body.viewer #viewerBar span { font-size:11px; }
