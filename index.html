@@ -101,7 +101,7 @@
     <select name="pay"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option></select>
     <div class="row">
       <div><label>発行日</label><input name="date" type="date"></div>
-      <div><label>領収書番号</label><input name="no" value=""></div>
+      <div><label>管理番号(領収書には出ません)</label><input name="no" value=""></div>
     </div>
     <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 4px">
     <div class="hint">↓ 発行者情報は一度入れるとこの端末に記憶されます</div>
@@ -144,7 +144,7 @@
       </div>
     </div>
     <div class="paper" id="paper">
-      <div class="top"><span id="vNo"></span><span id="vDate"></span></div>
+      <div class="top"><span></span><span id="vDate"></span></div>
       <div class="title">領収書</div>
       <div class="to"><span id="vTo"></span><span class="sama">様</span></div>
       <div class="amount"><b id="vAmount"></b><small id="vIncl"></small></div>
@@ -189,7 +189,6 @@ function calc(v) {
 }
 function show(v) {
   const { total, base, tax, rate } = calc(v);
-  $('vNo').textContent = v.no ? 'No. ' + v.no : '';
   const d = v.date ? new Date(v.date + 'T00:00:00') : null;
   $('vDate').textContent = d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日` : '';
   $('vTo').textContent = v.to || '上様';
