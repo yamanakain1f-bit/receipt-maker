@@ -234,6 +234,14 @@ if (!document.body.classList.contains('viewer')) {
   f.date.value = new Date().toISOString().slice(0,10);
   SAVED.forEach(k => { const x = ls.get('rc_'+k); if (x) f[k].value = x; });
   if (/^https?:/.test(location.protocol) && !f.base.value) f.base.value = location.origin + location.pathname;
+  // 設定用リンク: ?gas=<連携URL> 付きで開くと、連携URLをこの端末に記憶して、アドレスから消す
+  try {
+    const g = new URLSearchParams(location.search).get('gas');
+    if (g && /^https:\/\/script\.google\.com\//.test(g)) {
+      f.gas.value = g; ls.set('rc_gas', g);
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+  } catch (e) {}
   f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
   show(formVals()); fit();
 
