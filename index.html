@@ -97,6 +97,8 @@
     <label>消費税率</label>
     <select name="rate"><option value="10">10%</option><option value="8">8%(軽減)</option><option value="0">非課税・不課税</option></select>
     <label>但し書き</label><input name="memo" value="商品代">
+    <label>支払方法</label>
+    <select name="pay"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option></select>
     <div class="row">
       <div><label>発行日</label><input name="date" type="date"></div>
       <div><label>領収書番号</label><input name="no" value=""></div>
@@ -150,6 +152,7 @@
       <table class="tax">
         <tr><td id="vRateLabel"></td><td id="vBase"></td></tr>
         <tr><td>消費税額</td><td id="vTax"></td></tr>
+        <tr id="rowPay"><td>お支払い方法</td><td id="vPay"></td></tr>
       </table>
       <div class="issuer">
         <div class="name" id="vIssuer"></div>
@@ -165,7 +168,7 @@
 const f = document.getElementById('f');
 const $ = id => document.getElementById(id);
 const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
-const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg'];
+const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg','pay'];
 const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl','gas'];
 const mem = {};  // 保存が使えない環境(シークレットモード等)では、ページを開いている間だけ記憶
 const ls = {
@@ -197,6 +200,8 @@ function show(v) {
   $('vRateLabel').textContent = rate ? `${rate}%対象(税抜)` : '非課税・不課税';
   $('vBase').textContent = yen(base);
   $('vTax').textContent = yen(tax);
+  $('vPay').textContent = v.pay || '';
+  $('rowPay').hidden = !v.pay;
   $('vIssuer').textContent = v.issuer || '';
   $('vAddr').textContent = v.addr || '';
   $('vTel').textContent = v.tel ? 'TEL ' + v.tel : '';
@@ -256,7 +261,7 @@ if (!document.body.classList.contains('viewer')) {
       at: `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`,
       no: data.no, date: data.date, to: data.to, memo: String(data.memo||'').replace(/として$/,''),
       total: c.total, base: c.base, tax: c.tax, rate: c.rate,
-      issuer: data.issuer };
+      pay: data.pay || '', issuer: data.issuer };
   };
   const setSync = (msg, bad) => { $('syncState').textContent = msg; $('syncState').style.color = bad ? '#c0392b' : ''; };
   const refreshSync = () => {
@@ -295,7 +300,7 @@ if (!document.body.classList.contains('viewer')) {
   function renderHist() {
     const h = loadHist();
     $('hist').innerHTML = h.slice().reverse().map((e, i) =>
-      `<button type="button" class="h" data-i="${h.length-1-i}"><span class="n">No.${esc(e.data.no)}</span><span class="t">${esc(e.data.to || '上様')}<small>${fmtT(e.at)} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
+      `<button type="button" class="h" data-i="${h.length-1-i}"><span class="n">No.${esc(e.data.no)}</span><span class="t">${esc(e.data.to || '上様')}<small>${fmtT(e.at)} ${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
     const sum = h.reduce((t, e) => t + calc(e.data).total, 0);
     $('histSum').textContent = h.length ? `${h.length}件 / 合計 ${yen(sum)}` : '';
   }
@@ -323,9 +328,9 @@ if (!document.body.classList.contains('viewer')) {
   $('btnCsv').onclick = () => {
     const h = loadHist(); if (!h.length) return alert('履歴がありません');
     const q = t => '"' + String(t ?? '').replace(/"/g, '""') + '"';
-    const rows = [['番号','発行日','発行時刻','宛名','金額(税込)','消費税額','税率','但し書き'].map(q).join(',')];
+    const rows = [['番号','発行日','発行時刻','宛名','金額(税込)','消費税額','税率','支払方法','但し書き'].map(q).join(',')];
     h.forEach(e => { const c = calc(e.data), d = new Date(e.at);
-      rows.push([e.data.no, e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '上様', c.total, c.tax, c.rate + '%', e.data.memo].map(q).join(',')); });
+      rows.push([e.data.no, e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '上様', c.total, c.tax, c.rate + '%', e.data.pay || '', e.data.memo].map(q).join(',')); });
     const blob = new Blob(['\ufeff' + rows.join('\r\n')], { type:'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = '領収書履歴_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
