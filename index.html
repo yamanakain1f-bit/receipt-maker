@@ -99,10 +99,7 @@
     <label>但し書き</label><input name="memo" value="商品代">
     <label>支払方法</label>
     <select name="pay"><option value="現金">現金</option><option value="クレジットカード">クレジットカード</option></select>
-    <div class="row">
-      <div><label>発行日</label><input name="date" type="date"></div>
-      <div><label>管理番号(領収書には出ません)</label><input name="no" value=""></div>
-    </div>
+    <label>発行日</label><input name="date" type="date">
     <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 4px">
     <div class="hint">↓ 発行者情報は一度入れるとこの端末に記憶されます</div>
     <label>発行者名</label><input name="issuer" value="株式会社dots">
@@ -119,7 +116,7 @@
     <input name="base" placeholder="https://〇〇.netlify.app/">
     <div class="hint">ネット上に置いたこのファイルのURL。置いたページから開いた場合は自動で入ります。</div>
     <button type="button" id="btnQr">QRを発行</button>
-    <button type="button" class="sub" id="btnNext">次の領収書へ(番号+1・金額クリア)</button>
+    <button type="button" class="sub" id="btnNext">次の領収書へ(金額クリア)</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0 4px">
     <div class="histhead"><b>発行履歴</b><span id="histSum"></span></div>
     <div id="hist"></div>
@@ -168,7 +165,7 @@
 const f = document.getElementById('f');
 const $ = id => document.getElementById(id);
 const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
-const KEYS = ['to','amount','incl','rate','memo','date','no','issuer','addr','tel','reg','pay'];
+const KEYS = ['to','amount','incl','rate','memo','date','issuer','addr','tel','reg','pay'];
 const SAVED = ['issuer','addr','tel','reg','base','memo','rate','incl','gas'];
 const mem = {};  // 保存が使えない環境(シークレットモード等)では、ページを開いている間だけ記憶
 const ls = {
@@ -236,7 +233,6 @@ if (location.hash.startsWith('#r=')) {
 if (!document.body.classList.contains('viewer')) {
   f.date.value = new Date().toISOString().slice(0,10);
   SAVED.forEach(k => { const x = ls.get('rc_'+k); if (x) f[k].value = x; });
-  f.no.value = ls.get('rc_nextno') || '1';
   if (/^https?:/.test(location.protocol) && !f.base.value) f.base.value = location.origin + location.pathname;
   f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
   show(formVals()); fit();
@@ -245,7 +241,7 @@ if (!document.body.classList.contains('viewer')) {
     const url = base.split('#')[0] + '#r=' + enc(data);
     const box = $('qrCanvas'); box.innerHTML = '';
     new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
-    $('qrNote').textContent = '読み取ると領収書が表示されます(No.' + data.no + ')。';
+    $('qrNote').textContent = '読み取ると領収書が表示されます。';
     $('qrPanel').style.display = 'flex';
     $('qrPanel').scrollIntoView({behavior:'smooth'});
   };
@@ -254,11 +250,14 @@ if (!document.body.classList.contains('viewer')) {
   const loadQ = () => { try { return JSON.parse(ls.get('rc_queue') || '[]'); } catch (e) { return []; } };
   const saveQ = q => ls.set('rc_queue', JSON.stringify(q));
   const deviceId = (() => { let d = ls.get('rc_dev'); if (!d) { d = Math.random().toString(36).slice(2, 6); ls.set('rc_dev', d); } return d; })();
-  const payloadOf = (data, at) => {
+  const newRid = () => Date.now().toString(36) + '-' + deviceId;
+  let curRid = newRid();
+  const ridOf = e => e.rid || `${e.data.date}-${e.data.no}-${deviceId}`; // 旧データ用
+  const payloadOf = (data, at, rid) => {
     const c = calc(data), d = new Date(at), z = n => String(n).padStart(2, '0');
-    return { id: `${data.date}-${data.no}-${deviceId}`,
+    return { id: rid,
       at: `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`,
-      no: data.no, date: data.date, to: data.to, memo: String(data.memo||'').replace(/として$/,''),
+      date: data.date, to: data.to, memo: String(data.memo||'').replace(/として$/,''),
       total: c.total, base: c.base, tax: c.tax, rate: c.rate,
       pay: data.pay || '', issuer: data.issuer };
   };
@@ -299,7 +298,7 @@ if (!document.body.classList.contains('viewer')) {
   function renderHist() {
     const h = loadHist();
     $('hist').innerHTML = h.slice().reverse().map((e, i) =>
-      `<button type="button" class="h" data-i="${h.length-1-i}"><span class="n">No.${esc(e.data.no)}</span><span class="t">${esc(e.data.to || '上様')}<small>${fmtT(e.at)} ${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
+      `<button type="button" class="h" data-i="${h.length-1-i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
     const sum = h.reduce((t, e) => t + calc(e.data).total, 0);
     $('histSum').textContent = h.length ? `${h.length}件 / 合計 ${yen(sum)}` : '';
   }
@@ -316,20 +315,19 @@ if (!document.body.classList.contains('viewer')) {
     if (!v.base) return alert('「公開URL」を入れてください(ネット上に置いたこのファイルのURL)');
     const data = {}; KEYS.forEach(k => data[k] = v[k]);
     drawQr(data, v.base);
-    ls.set('rc_nextno', String((parseInt(v.no,10)||0) + 1));
-    // 同じ番号は上書き(再発行しても重複しない)
-    const h = loadHist().filter(e => e.data.no !== data.no || e.data.date !== data.date);
+    // 同じ領収書の再発行は上書き(重複しない)。「次の領収書へ」で新しい領収書になる
+    const h = loadHist().filter(e => ridOf(e) !== curRid);
     const at = Date.now();
-    h.push({ at, data }); saveHist(h); renderHist();
-    if (f.gas.value) enqueue(payloadOf(data, at));
+    h.push({ at, rid: curRid, data }); saveHist(h); renderHist();
+    if (f.gas.value) enqueue(payloadOf(data, at, curRid));
   };
 
   $('btnCsv').onclick = () => {
     const h = loadHist(); if (!h.length) return alert('履歴がありません');
     const q = t => '"' + String(t ?? '').replace(/"/g, '""') + '"';
-    const rows = [['番号','発行日','発行時刻','宛名','金額(税込)','消費税額','税率','支払方法','但し書き'].map(q).join(',')];
+    const rows = [['発行日','発行時刻','宛名','金額(税込)','消費税額','税率','支払方法','但し書き'].map(q).join(',')];
     h.forEach(e => { const c = calc(e.data), d = new Date(e.at);
-      rows.push([e.data.no, e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '上様', c.total, c.tax, c.rate + '%', e.data.pay || '', e.data.memo].map(q).join(',')); });
+      rows.push([e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '上様', c.total, c.tax, c.rate + '%', e.data.pay || '', e.data.memo].map(q).join(',')); });
     const blob = new Blob(['\ufeff' + rows.join('\r\n')], { type:'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = '領収書履歴_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
@@ -337,7 +335,7 @@ if (!document.body.classList.contains('viewer')) {
   $('btnAll').onclick = () => {
     if (!f.gas.value) return alert('先に「スプレッドシート連携URL」を入れてください');
     const h = loadHist(); if (!h.length) return alert('履歴がありません');
-    h.forEach(e => saveQ(loadQ().filter(x => x.id !== payloadOf(e.data, e.at).id).concat(payloadOf(e.data, e.at))));
+    h.forEach(e => { const p = payloadOf(e.data, e.at, ridOf(e)); saveQ(loadQ().filter(x => x.id !== p.id).concat(p)); });
     flush();
   };
   $('btnClear').onclick = () => {
@@ -348,7 +346,7 @@ if (!document.body.classList.contains('viewer')) {
 
   $('btnNext').onclick = () => {
     f.amount.value = ''; f.to.value = '';
-    f.no.value = ls.get('rc_nextno') || String((parseInt(f.no.value,10)||0)+1);
+    curRid = newRid();
     $('qrPanel').style.display = 'none';
     show(formVals());
   };
