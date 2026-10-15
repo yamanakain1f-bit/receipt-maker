@@ -263,14 +263,14 @@ if (!document.body.classList.contains('viewer')) {
     const n = loadQ().length;
     $('btnSync').hidden = !(n && f.gas.value);
     if (!f.gas.value) setSync('未設定の場合は、この端末の履歴にだけ残ります。');
-    else if (n) setSync(`未送信が${n}件あります。電波のあるところで送ってください。`, true);
+    else if (n) setSync(`未送信が${n}件あります。` + (lastErr ? `(原因: ${lastErr})` : '電波のあるところで送ってください。'), true);
     else setSync('スプレッドシートに記録します(送信済み)。');
   };
-  let flushing = false;
+  let flushing = false, lastErr = '';
   async function flush() {
     const url = f.gas.value.trim();
     if (!url || flushing) return refreshSync();
-    flushing = true; setSync('スプレッドシートに送信中…');
+    flushing = true; lastErr = ''; setSync('スプレッドシートに送信中…');
     try {
       let q = loadQ();
       while (q.length) {
@@ -279,7 +279,7 @@ if (!document.body.classList.contains('viewer')) {
         if (!j.ok) throw new Error(j.error || 'error');
         q = loadQ().filter(x => x.id !== q[0].id); saveQ(q);
       }
-    } catch (e) { /* 圏外・URL違いなどは未送信のまま残す */ }
+    } catch (e) { lastErr = String(e && e.message || e); } // 圏外・URL違いなどは未送信のまま残す
     flushing = false; refreshSync();
   }
   const enqueue = p => { saveQ(loadQ().filter(x => x.id !== p.id).concat(p)); flush(); };
