@@ -162,7 +162,7 @@ function show(v) {
   document.querySelector('.sama').textContent = '様';
   $('vAmount').textContent = yen(total) + ' -';
   $('vIncl').textContent = rate ? '(税込)' : '';
-  $('vMemo').textContent = '　' + (v.memo||'') + '　';
+  $('vMemo').textContent = '　' + (v.memo||'').replace(/として$/,'') + '　';
   $('vRateLabel').textContent = rate ? `${rate}%対象(税抜)` : '非課税・不課税';
   $('vBase').textContent = yen(base);
   $('vTax').textContent = yen(tax);
