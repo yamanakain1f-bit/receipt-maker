@@ -104,10 +104,10 @@
     <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 4px">
     <div class="hint">↓ 発行者情報は一度入れるとこの端末に記憶されます</div>
     <label>発行者名</label><input name="issuer" value="株式会社dots">
-    <label>住所</label><input name="addr" value="">
+    <label>住所</label><input name="addr" value="大阪府大阪市西区新町1-30-9サンライズマンション1F">
     <div class="row">
-      <div><label>電話</label><input name="tel" value=""></div>
-      <div><label>登録番号(T+13桁)</label><input name="reg" placeholder="T1234567890123"></div>
+      <div><label>電話</label><input name="tel" value="072-981-9177"></div>
+      <div><label>登録番号(T+13桁)</label><input name="reg" value="T8120001207830" placeholder="T1234567890123"></div>
     </div>
     <label>公開URL(このファイルを置いたURL)</label>
     <input name="base" placeholder="https://〇〇.netlify.app/">
@@ -226,7 +226,7 @@ if (location.hash.startsWith('#r=')) {
 // --- こちら側(入力) ---
 if (!document.body.classList.contains('viewer')) {
   f.date.value = new Date().toISOString().slice(0,10);
-  SAVED.forEach(k => { const x = ls.get('rc_'+k); if (x !== null) f[k].value = x; });
+  SAVED.forEach(k => { const x = ls.get('rc_'+k); if (x) f[k].value = x; });
   f.no.value = ls.get('rc_nextno') || '1';
   if (/^https?:/.test(location.protocol) && !f.base.value) f.base.value = location.origin + location.pathname;
   f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
