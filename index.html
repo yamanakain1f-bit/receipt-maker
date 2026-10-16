@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>領収書</title>
+<meta name="app-version" content="2026-10-16-1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
@@ -380,6 +381,19 @@ if (!document.body.classList.contains('viewer')) {
     show(formVals());
   };
 }
+
+// 古いページが携帯に残っていたら、最新版で開き直す
+(async () => {
+  try {
+    const mine = document.querySelector('meta[name="app-version"]').content;
+    const res = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' });
+    const m = (await res.text()).match(/name="app-version" content="([^"]+)"/);
+    if (m && m[1] !== mine && !sessionStorage.getItem('rc_reloaded_' + m[1])) {
+      sessionStorage.setItem('rc_reloaded_' + m[1], '1');
+      location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]) + location.hash);
+    }
+  } catch (e) {}
+})();
 </script>
 </body>
 </html>
