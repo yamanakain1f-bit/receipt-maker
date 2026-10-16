@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>領収書</title>
-<meta name="app-version" content="2026-10-16-1">
+<meta name="app-version" content="2026-10-16-2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
@@ -47,7 +47,7 @@
   .issuer .name { font-size:16px; font-weight:600; }
   .histhead { display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; font-size:14px; }
   .histhead span { font-size:12px; color:var(--muted); }
-  #hist { margin-top:8px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+  #hist { margin-top:8px; max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
   #hist:empty::before { content:"まだ発行していません"; display:block; padding:14px; font-size:12px; color:var(--muted); }
   .h { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; width:100%; margin:0; padding:9px 10px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:#fff; color:var(--ink); font:inherit; font-size:13px; font-weight:400; text-align:left; }
   .h:last-child { border-bottom:0; }
@@ -325,8 +325,10 @@ if (!document.body.classList.contains('viewer')) {
     const text = e => { const d = new Date(e.at), c = calc(e.data);
       return [e.data.to || '上様', e.data.memo, e.data.pay, c.total, e.data.date, `${d.getMonth()+1}/${d.getDate()}`, fmtT(e.at)].join(' ').toLowerCase(); };
     const shown = h.map((e, i) => ({ e, i })).filter(x => words.every(w => text(x.e).includes(w))).reverse();
-    $('hist').innerHTML = shown.map(({ e, i }) =>
+    const view = words.length ? shown : shown.slice(0, 3);   // 検索なしのときは最新3件だけ。残りは検索で探す
+    $('hist').innerHTML = view.map(({ e, i }) =>
       `<button type="button" class="h" data-i="${i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
+    if (!words.length && h.length > 3) $('hist').insertAdjacentHTML('beforeend', `<div style="padding:10px;font-size:11px;color:var(--muted)">ほか${h.length - 3}件は、上の検索で探せます</div>`);
     if (h.length && !shown.length) $('hist').innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted)">見つかりません</div>';
     const sum = shown.reduce((t, x) => t + calc(x.e.data).total, 0);
     $('histSum').textContent = !h.length ? '' : words.length ? `${shown.length}件(全${h.length}件) / ${yen(sum)}` : `${h.length}件 / 合計 ${yen(sum)}`;
