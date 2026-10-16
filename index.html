@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>領収書</title>
-<meta name="app-version" content="2026-10-16-2">
+<meta name="app-version" content="2026-10-16-3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
@@ -122,7 +122,7 @@
     <button type="button" class="sub" id="btnNext">次の領収書へ(金額クリア)</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0 4px">
     <div class="histhead"><b>発行履歴</b><span id="histSum"></span></div>
-    <input id="histQ" type="search" placeholder="検索(宛名・金額・現金・クレジット・日付 など)" autocomplete="off" style="margin-top:8px">
+    <input id="histQ" type="search" placeholder="検索(宛名・金額・現金・クレジット・日付 など)。連携URLがあれば全員の分も探します" autocomplete="off" style="margin-top:8px">
     <div id="hist"></div>
     <div class="row">
       <button type="button" class="sub" id="btnCsv">CSVで保存</button>
@@ -326,16 +326,43 @@ if (!document.body.classList.contains('viewer')) {
       return [e.data.to || '上様', e.data.memo, e.data.pay, c.total, e.data.date, `${d.getMonth()+1}/${d.getDate()}`, fmtT(e.at)].join(' ').toLowerCase(); };
     const shown = h.map((e, i) => ({ e, i })).filter(x => words.every(w => text(x.e).includes(w))).reverse();
     const view = words.length ? shown : shown.slice(0, 3);   // 検索なしのときは最新3件だけ。残りは検索で探す
-    $('hist').innerHTML = view.map(({ e, i }) =>
+    const mine = new Set(h.map(ridOf));
+    const rem = words.length && remoteQ === $('histQ').value.trim() ? remote.filter(x => !mine.has(x.id)) : [];
+    $('hist').innerHTML = rem.map((x, k) =>
+      `<button type="button" class="h" data-r="${k}"><span class="n">${esc(String(x.at).slice(5))}</span><span class="t">${esc(x.to || '上様')}<small>シート ${esc(x.pay||'')} ${esc(x.memo||'')}</small></span><span class="a">${yen(x.total)}</span></button>`).join('') + view.map(({ e, i }) =>
       `<button type="button" class="h" data-i="${i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
     if (!words.length && h.length > 3) $('hist').insertAdjacentHTML('beforeend', `<div style="padding:10px;font-size:11px;color:var(--muted)">ほか${h.length - 3}件は、上の検索で探せます</div>`);
-    if (h.length && !shown.length) $('hist').innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted)">見つかりません</div>';
-    const sum = shown.reduce((t, x) => t + calc(x.e.data).total, 0);
-    $('histSum').textContent = !h.length ? '' : words.length ? `${shown.length}件(全${h.length}件) / ${yen(sum)}` : `${h.length}件 / 合計 ${yen(sum)}`;
+    remoteView = rem;
+    if (words.length && !shown.length && !rem.length) $('hist').innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted)">見つかりません</div>';
+    const sum = shown.reduce((t, x) => t + calc(x.e.data).total, 0) + rem.reduce((t, x) => t + x.total, 0);
+    $('histSum').textContent = !h.length && !rem.length ? '' : words.length ? `${shown.length + rem.length}件${rem.length ? '(うちシート' + rem.length + '件)' : ''} / ${yen(sum)}` : `${h.length}件 / 合計 ${yen(sum)}`;
   }
-  $('histQ').addEventListener('input', renderHist);
+  let remote = [], remoteQ = '', remoteView = [], remoteTimer = null;
+  async function searchSheet() {
+    const q = $('histQ').value.trim(), url = f.gas.value.trim();
+    if (!q || !url) { remote = []; remoteQ = ''; return renderHist(); }
+    try {
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(q));
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      if (q !== $('histQ').value.trim()) return;   // 入力が進んでいたら、古い結果は使わない
+      remote = j.items || []; remoteQ = q;
+    } catch (e) { remote = []; remoteQ = ''; }
+    renderHist();
+  }
+  $('histQ').addEventListener('input', () => {
+    renderHist();
+    clearTimeout(remoteTimer); remoteTimer = setTimeout(searchSheet, 500);
+  });
   $('hist').onclick = ev => {
     const b = ev.target.closest('.h'); if (!b) return;
+    if (b.dataset.r !== undefined) {   // シートから見つけた1件: 同じ内容でQRを出し直す(シートには書き込まない)
+      const x = remoteView[Number(b.dataset.r)];
+      if (!x || !f.base.value) return;
+      drawQr({ to: x.to === '上様' ? '' : x.to, amount: String(x.total), incl: '1', rate: String(x.rate), memo: x.memo,
+        date: x.date, issuer: x.issuer || f.issuer.value, addr: f.addr.value, tel: f.tel.value, reg: f.reg.value, pay: x.pay }, f.base.value);
+      return;
+    }
     const e = loadHist()[Number(b.dataset.i)];
     if (!e || !f.base.value) return;
     drawQr(e.data, f.base.value);
