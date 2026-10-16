@@ -121,6 +121,7 @@
     <button type="button" class="sub" id="btnNext">次の領収書へ(金額クリア)</button>
     <hr style="border:0;border-top:1px solid var(--line);margin:22px 0 4px">
     <div class="histhead"><b>発行履歴</b><span id="histSum"></span></div>
+    <input id="histQ" type="search" placeholder="検索(宛名・金額・現金・クレジット・日付 など)" autocomplete="off" style="margin-top:8px">
     <div id="hist"></div>
     <div class="row">
       <button type="button" class="sub" id="btnCsv">CSVで保存</button>
@@ -319,11 +320,17 @@ if (!document.body.classList.contains('viewer')) {
   const fmtT = ts => { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
   function renderHist() {
     const h = loadHist();
-    $('hist').innerHTML = h.slice().reverse().map((e, i) =>
-      `<button type="button" class="h" data-i="${h.length-1-i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
-    const sum = h.reduce((t, e) => t + calc(e.data).total, 0);
-    $('histSum').textContent = h.length ? `${h.length}件 / 合計 ${yen(sum)}` : '';
+    const words = ($('histQ').value || '').trim().toLowerCase().replace(/[,¥円\s]+/g, ' ').split(' ').filter(Boolean);
+    const text = e => { const d = new Date(e.at), c = calc(e.data);
+      return [e.data.to || '上様', e.data.memo, e.data.pay, c.total, e.data.date, `${d.getMonth()+1}/${d.getDate()}`, fmtT(e.at)].join(' ').toLowerCase(); };
+    const shown = h.map((e, i) => ({ e, i })).filter(x => words.every(w => text(x.e).includes(w))).reverse();
+    $('hist').innerHTML = shown.map(({ e, i }) =>
+      `<button type="button" class="h" data-i="${i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
+    if (h.length && !shown.length) $('hist').innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted)">見つかりません</div>';
+    const sum = shown.reduce((t, x) => t + calc(x.e.data).total, 0);
+    $('histSum').textContent = !h.length ? '' : words.length ? `${shown.length}件(全${h.length}件) / ${yen(sum)}` : `${h.length}件 / 合計 ${yen(sum)}`;
   }
+  $('histQ').addEventListener('input', renderHist);
   $('hist').onclick = ev => {
     const b = ev.target.closest('.h'); if (!b) return;
     const e = loadHist()[Number(b.dataset.i)];
