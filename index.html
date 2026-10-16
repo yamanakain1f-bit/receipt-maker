@@ -140,6 +140,8 @@
       <div>
         <b>お客様にこのQRを読み取ってもらってください</b>
         <div class="hint" id="qrNote"></div>
+        <button type="button" id="btnShare">この領収書のリンクを送る(LINE・メールなど)</button>
+        <div class="hint" id="shareNote">QRを読み取れない方や、後日お送りするときに使います。</div>
       </div>
     </div>
     <div class="paper" id="paper">
@@ -247,11 +249,21 @@ if (!document.body.classList.contains('viewer')) {
   f.addEventListener('input', () => { SAVED.forEach(k => ls.set('rc_'+k, f[k].value)); show(formVals()); });
   show(formVals()); fit();
 
+  let lastUrl = '';
+  $('btnShare').onclick = async () => {
+    if (!lastUrl) return;
+    try {
+      if (navigator.share) { await navigator.share({ title: '領収書', text: '領収書をお送りします', url: lastUrl }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(lastUrl); $('shareNote').textContent = 'リンクをコピーしました。LINEやメールに貼り付けて送れます。'; }
+    catch (e) { prompt('このリンクをコピーして送ってください', lastUrl); }
+  };
   const drawQr = (data, base) => {
     const url = base.split('#')[0] + '#r=' + enc(data);
     const box = $('qrCanvas'); box.innerHTML = '';
     new QRCode(box, { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
     $('qrNote').textContent = '読み取ると領収書が表示されます。';
+    lastUrl = url; $('shareNote').textContent = 'QRを読み取れない方や、後日お送りするときに使います。';
     $('qrPanel').style.display = 'flex';
     $('qrPanel').scrollIntoView({behavior:'smooth'});
   };
