@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>領収書</title>
-<meta name="app-version" content="2026-10-16-3">
+<meta name="app-version" content="2026-10-19-1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root { --ink:#1c1c1e; --muted:#6b6b70; --line:#d8d8dc; --accent:#1f5eff; --bg:#f3f4f6; }
@@ -92,7 +92,7 @@
   <form id="f">
     <h1>領収書メーカー</h1>
     <div class="hint">入力 → 「QRを発行」→ お客様に読み取ってもらう</div>
-    <label>宛名(空欄なら「上様」)</label><input name="to" value="">
+    <label>宛名(空欄なら、領収書の宛名は空欄になります)</label><input name="to" value="">
     <div class="row">
       <div><label>金額(円)</label><input name="amount" type="number" inputmode="numeric" value=""></div>
       <div><label>金額の種類</label><select name="incl"><option value="1">税込</option><option value="0">税抜</option></select></div>
@@ -194,8 +194,9 @@ function show(v) {
   const { total, base, tax, rate } = calc(v);
   const d = v.date ? new Date(v.date + 'T00:00:00') : null;
   $('vDate').textContent = d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日` : '';
-  $('vTo').textContent = v.to || '上様';
-  document.querySelector('.sama').textContent = v.to ? '様' : '';
+  $('vTo').textContent = v.to || '\u00a0';   // 宛名が空のときは、線だけ残して空欄にする
+  document.querySelector('.sama').textContent = '様';
+  document.querySelector('.to').style.display = '';
   $('vAmount').textContent = yen(total) + ' -';
   $('vIncl').textContent = rate ? '(税込)' : '';
   $('vMemo').textContent = '　' + (v.memo||'').replace(/として$/,'') + '　';
@@ -323,14 +324,14 @@ if (!document.body.classList.contains('viewer')) {
     const h = loadHist();
     const words = ($('histQ').value || '').trim().toLowerCase().replace(/[,¥円\s]+/g, ' ').split(' ').filter(Boolean);
     const text = e => { const d = new Date(e.at), c = calc(e.data);
-      return [e.data.to || '上様', e.data.memo, e.data.pay, c.total, e.data.date, `${d.getMonth()+1}/${d.getDate()}`, fmtT(e.at)].join(' ').toLowerCase(); };
+      return [e.data.to || '宛名なし', e.data.memo, e.data.pay, c.total, e.data.date, `${d.getMonth()+1}/${d.getDate()}`, fmtT(e.at)].join(' ').toLowerCase(); };
     const shown = h.map((e, i) => ({ e, i })).filter(x => words.every(w => text(x.e).includes(w))).reverse();
     const view = words.length ? shown : shown.slice(0, 3);   // 検索なしのときは最新3件だけ。残りは検索で探す
     const mine = new Set(h.map(ridOf));
     const rem = words.length && remoteQ === $('histQ').value.trim() ? remote.filter(x => !mine.has(x.id)) : [];
     $('hist').innerHTML = rem.map((x, k) =>
-      `<button type="button" class="h" data-r="${k}"><span class="n">${esc(String(x.at).slice(5))}</span><span class="t">${esc(x.to || '上様')}<small>シート ${esc(x.pay||'')} ${esc(x.memo||'')}</small></span><span class="a">${yen(x.total)}</span></button>`).join('') + view.map(({ e, i }) =>
-      `<button type="button" class="h" data-i="${i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '上様')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
+      `<button type="button" class="h" data-r="${k}"><span class="n">${esc(String(x.at).slice(5))}</span><span class="t">${esc(x.to && x.to !== '上様' ? x.to : '宛名なし')}<small>シート ${esc(x.pay||'')} ${esc(x.memo||'')}</small></span><span class="a">${yen(x.total)}</span></button>`).join('') + view.map(({ e, i }) =>
+      `<button type="button" class="h" data-i="${i}"><span class="n">${fmtT(e.at)}</span><span class="t">${esc(e.data.to || '宛名なし')}<small>${esc(e.data.pay||'')} ${esc(e.data.memo||'')}</small></span><span class="a">${yen(calc(e.data).total)}</span></button>`).join('');
     if (!words.length && h.length > 3) $('hist').insertAdjacentHTML('beforeend', `<div style="padding:10px;font-size:11px;color:var(--muted)">ほか${h.length - 3}件は、上の検索で探せます</div>`);
     remoteView = rem;
     if (words.length && !shown.length && !rem.length) $('hist').innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted)">見つかりません</div>';
@@ -386,7 +387,7 @@ if (!document.body.classList.contains('viewer')) {
     const q = t => '"' + String(t ?? '').replace(/"/g, '""') + '"';
     const rows = [['発行日','発行時刻','宛名','金額(税込)','消費税額','税率','支払方法','但し書き'].map(q).join(',')];
     h.forEach(e => { const c = calc(e.data), d = new Date(e.at);
-      rows.push([e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '上様', c.total, c.tax, c.rate + '%', e.data.pay || '', e.data.memo].map(q).join(',')); });
+      rows.push([e.data.date, d.toLocaleTimeString('ja-JP'), e.data.to || '', c.total, c.tax, c.rate + '%', e.data.pay || '', e.data.memo].map(q).join(',')); });
     const blob = new Blob(['\ufeff' + rows.join('\r\n')], { type:'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = '領収書履歴_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
